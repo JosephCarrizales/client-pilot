@@ -1,6 +1,7 @@
 import 'package:client_pilot/pages/tasks_detail_page.dart';
+import 'package:client_pilot/pages/add_task.dart';
+import 'package:client_pilot/data/app_data.dart';
 import 'package:flutter/material.dart';
-import 'package:client_pilot/widgets/add_task_form.dart';
 
 class TasksPage extends StatefulWidget {
   const TasksPage({super.key});
@@ -32,12 +33,10 @@ class _TasksPageState extends State<TasksPage> {
     },
   ];
 
-  // Lookup table so we can find a full client map by name when navigating
-  // to the task detail page. Keyed by name because that's what the task map
-  // stores. When you add a real database, this goes away entirely.
+  // Built from the shared list so the task detail page can look up any contact
+  // by name. Keyed by name because that's what the task map stores.
   final Map<String, Map<String, String>> _clients = {
-    'Tom Harrington': {'name': 'Tom Harrington', 'phone': '555-999-0000', 'email': 'tomh@example.com', 'service': 'Lawn Mowing', 'schedule': 'Every Tuesday', 'price': '\$75', 'status': 'Overdue', 'address': '77 Ridgeline Rd', 'notes': 'Called twice — no response.'},
-    'Karen Mills':    {'name': 'Karen Mills',    'phone': '555-222-3333', 'email': 'karen@example.com', 'service': 'Cleanup',     'schedule': 'Monthly',       'price': '\$90', 'status': 'Overdue', 'address': '31 Sunset Blvd',  'notes': 'Left voicemail.'},
+    for (final c in kContacts) c['name']!: c,
   };
 
   String searchQuery = '';
@@ -129,7 +128,12 @@ class _TasksPageState extends State<TasksPage> {
                   // 'await' pauses here until the form closes, then newTask holds the result.
                   final newTask = await Navigator.push(
                     context,
-                    MaterialPageRoute(builder: (context) => const AddTaskForm()),
+                    MaterialPageRoute(
+                      // Pass the full client list so the form can show a contact picker
+                      builder: (context) => AddTask(
+                        contacts: _clients.values.toList(),
+                      ),
+                    ),
                   );
                   if (newTask != null) {
                     setState(() => tasks.add(newTask));

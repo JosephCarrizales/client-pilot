@@ -1,5 +1,6 @@
 import 'package:client_pilot/widgets/add_contact_form.dart';
 import 'package:client_pilot/pages/client_detail_page.dart';
+import 'package:client_pilot/data/app_data.dart';
 import 'package:flutter/material.dart';
 
 
@@ -12,14 +13,9 @@ class ContactsPage extends StatefulWidget {
 
 class _ContactsPageState extends State<ContactsPage> {
 
-  final List<Map<String, String>> clients = [
-    {'name': 'Marcus Webb',    'service': 'Lawn Mowing',    'phone': '555-111-2222', 'email': 'marcus@example.com',  'schedule': 'Every Monday',    'price': '\$85',  'status': 'Paid',    'address': '12 Oak Lane',      'notes': 'Gate code is 1234. Dog in backyard — keep closed.'},
-    {'name': 'Sandra Torres',  'service': 'Hedge Trimming', 'phone': '555-333-4444', 'email': 'sandra@example.com',  'schedule': 'Every Wednesday', 'price': '\$65',  'status': 'Paid',    'address': '88 Maple Ave',     'notes': 'Prefers contact by text only.'},
-    {'name': 'Derek Liu',      'service': 'Lawn + Edging',  'phone': '555-555-6666', 'email': 'derek@example.com',   'schedule': 'Every Friday',    'price': '\$120', 'status': 'Pending', 'address': '5 Birchwood Ct',   'notes': ''},
-    {'name': 'Brenda Okafor',  'service': 'Leaf Cleanup',   'phone': '555-777-8888', 'email': 'brenda@example.com',  'schedule': 'Bi-weekly',       'price': '\$55',  'status': 'Pending', 'address': '200 Elm Street',   'notes': 'Invoice sent — waiting on check.'},
-    {'name': 'Tom Harrington', 'service': 'Lawn Mowing',    'phone': '555-999-0000', 'email': 'tomh@example.com',    'schedule': 'Every Tuesday',   'price': '\$75',  'status': 'Overdue', 'address': '77 Ridgeline Rd',  'notes': 'Called twice — no response. Try again Friday.'},
-    {'name': 'Karen Mills',    'service': 'Cleanup',        'phone': '555-222-3333', 'email': 'karen@example.com',   'schedule': 'Monthly',         'price': '\$90',  'status': 'Overdue', 'address': '31 Sunset Blvd',   'notes': 'Left voicemail. Follow up by end of week.'},
-  ];
+  // Seeded from the shared list so contacts_page and tasks_page stay in sync.
+  // New contacts added via the form are appended here at runtime.
+  final List<Map<String, String>> clients = List.of(kContacts);
 
   String _getInitials(String name) {
     // remove extra spaces and split by space

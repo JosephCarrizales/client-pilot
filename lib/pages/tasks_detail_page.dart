@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:client_pilot/pages/client_detail_page.dart';
 
 // StatefulWidget is used here even though we don't have state yet.
@@ -245,11 +246,29 @@ class _TasksDetailPageState extends State<TasksDetailPage> {
     );
   }
 
+  // Hands the phone number URI to the OS, which shows the native "call?" prompt.
+  // Marked async because launchUrl is a Future — it waits for the OS to respond.
+  Future<void> _callContact() async {
+    final phone = widget.client['phone'];
+    if (phone == null || phone.isEmpty) return;
+
+    // Uri(scheme: 'tel') is what tells the OS this is a phone call, not a web link.
+    // The OS reads the scheme, finds the Phone app, and pre-fills the number.
+    await launchUrl(Uri(scheme: 'tel', path: phone));
+  }
+
   // Shows a dialog with the contact's phone number.
-  // Actually launching the dialer requires the url_launcher package —
-  // for now this just displays the number so the user can dial manually.
+  // Tapping the number itself triggers the OS call prompt via _callContact.
   void _showCallDialog() {
-    final phone = widget.client['phone'] ?? 'No phone number on file';
+    final phone = widget.client['phone'];
+
+    // No number on file — show a quick notice and skip the dialog entirely
+    if (phone == null || phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No phone number on file')),
+      );
+      return;
+    }
 
     showDialog(
       context: context,
@@ -265,22 +284,135 @@ class _TasksDetailPageState extends State<TasksDetailPage> {
               const Text('Call',
                 style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
               ),
-              const SizedBox(height: 8.0),
-              Text(phone,
-                style: const TextStyle(fontSize: 14.0, color: Color(0xFF94A3B8)),
+              const SizedBox(height: 16.0),
+
+              // The phone number itself is the tap target.
+              // Green + underline signals to the user that it's tappable.
+              GestureDetector(
+                onTap: () {
+                  // Close the dialog first, then open the dialer.
+                  // If we open the dialer without closing first, the dialog
+                  // would still be sitting behind the call screen.
+                  Navigator.pop(ctx);
+                  _callContact();
+                },
+                child: Text(phone,
+                  style: const TextStyle(
+                    fontSize: 16.0,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF4ADE80),
+                    decoration: TextDecoration.underline,
+                    decorationColor: Color(0xFF4ADE80),
+                  ),
+                ),
               ),
+
               const SizedBox(height: 24.0),
               SizedBox(
                 width: double.infinity,
                 child: TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  style: TextButton.styleFrom(foregroundColor: Color(0xFF64748B)),
-                  child: const Text('Close'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: const Color(0xFF64748B),
+                  ),
+                  child: const Text('Cancel'),
                 ),
               ),
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDescriptionSection() {
+    // Pull the description out of the task map.
+    // If nobody filled one in, we fall back to null and show a placeholder.
+    final description = widget.task['description'];
+    final hasDescription = description != null && description.isNotEmpty;
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('DESCRIPTION',
+            style: TextStyle(
+              fontSize: 11.0,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF64748B),
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 10.0),
+          // Show the actual text if there is one, muted placeholder if not.
+          // height: 1.6 adds extra line spacing so multi-line descriptions
+          // are easier to read than the default tight line height.
+          Text(
+            hasDescription ? description : 'No description added',
+            style: TextStyle(
+              fontSize: 14.0,
+              height: 1.6,
+              // Muted color for the placeholder so it doesn't look like real content
+              color: hasDescription ? null : const Color(0xFF64748B),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContactTagsSection() {
+    final serviceStr = widget.client['service'];
+
+    // The form joins selected services with ', ' before saving — split it back
+    // into a list so we can render each tag as its own pill.
+    final tags = (serviceStr != null && serviceStr.isNotEmpty)
+        ? serviceStr.split(', ').where((t) => t.isNotEmpty).toList()
+        : <String>[];
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 20.0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text("CONTACT'S TAGS",
+            style: TextStyle(
+              fontSize: 11.0,
+              fontWeight: FontWeight.bold,
+              color: Color(0xFF64748B),
+              letterSpacing: 0.8,
+            ),
+          ),
+          const SizedBox(height: 10.0),
+          if (tags.isEmpty)
+            // Contact has no services on file — show a placeholder instead of
+            // an empty gap that would look like a broken section.
+            const Text('No tags added',
+              style: TextStyle(fontSize: 14.0, color: Color(0xFF64748B)),
+            )
+          else
+            // Wrap is like a Row that knows how to wrap to the next line.
+            // A Row would overflow if the pills don't all fit — Wrap just keeps going.
+            Wrap(
+              spacing: 8.0,    // horizontal gap between pills on the same line
+              runSpacing: 8.0, // vertical gap when the pills spill onto a new line
+              children: tags.map((tag) => Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 4.0),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF4ADE80).withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(20.0),
+                ),
+                child: Text(tag,
+                  style: const TextStyle(
+                    fontSize: 12.0,
+                    fontWeight: FontWeight.w500,
+                    color: Color(0xFF4ADE80),
+                  ),
+                ),
+              )).toList(),
+            ),
+        ],
       ),
     );
   }
@@ -332,8 +464,7 @@ class _TasksDetailPageState extends State<TasksDetailPage> {
                 ),
               ),
               const Spacer(),
-              // Call icon — tapping opens a dialog with the phone number.
-              // To actually launch the dialer, add the url_launcher package later.
+              // Call icon — tapping opens the device phone dialer with the number pre-filled.
               Material(
                 color: Colors.transparent,
                 shape: const CircleBorder(),
@@ -417,6 +548,8 @@ class _TasksDetailPageState extends State<TasksDetailPage> {
             _buildTaskNameSection(),
             _buildDueDateSection(),
             _linkedContact(),
+            _buildDescriptionSection(),
+            _buildContactTagsSection(),
           ],
         ),
       ),
