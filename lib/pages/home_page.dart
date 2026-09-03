@@ -35,8 +35,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(),
-      
+      appBar: AppBar(toolbarHeight: 35),
       //body: Center(
        // child:
        body: widgetOptions.elementAt(selectedIndex),

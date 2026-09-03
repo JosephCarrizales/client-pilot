@@ -2,11 +2,14 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 
 class AddTask extends StatefulWidget {
-  // The contacts list comes from tasks_page so the user can link one.
-  // When we have a real database this goes away — we'll just query it.
+  // The contacts list comes from the caller so the user can pick a linked contact.
   final List<Map<String, String>> contacts;
 
-  const AddTask({super.key, required this.contacts});
+  // When task is provided we're in edit mode — all fields are pre-filled.
+  // When null we're creating a brand new task.
+  final Map<String, String>? task;
+
+  const AddTask({super.key, required this.contacts, this.task});
 
   @override
   State<AddTask> createState() => _AddTaskState();
@@ -58,6 +61,66 @@ class _AddTaskState extends State<AddTask> {
     final minute = t.minute.toString().padLeft(2, '0');
     final period = t.period == DayPeriod.am ? 'AM' : 'PM';
     return '$hour:$minute $period';
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    // Only runs when editing — skip entirely when creating a new task
+    if (widget.task == null) return;
+    final t = widget.task!;
+
+    // Pre-fill every field from the existing task data
+    _nameController.text        = t['title'] ?? '';
+    _descriptionController.text = t['description'] ?? '';
+    _taskType                   = t['taskType'] ?? 'Other';
+    _priority                   = t['priority'] ?? 'Medium';
+
+    // Find the linked contact by matching name against the contacts list.
+    // If the name isn't in the list (e.g. manually entered), store just the
+    // name so the "Linked To" field still shows something.
+    final name = t['clientName'] ?? '';
+    if (name.isNotEmpty) {
+      _linkedContact = widget.contacts.firstWhere(
+        (c) => c['name'] == name,
+        orElse: () => {'name': name},
+      );
+    }
+
+    // Parse the stored 'YYYY-MM-DD' string back into a DateTime for the date picker
+    if ((t['dueDate'] ?? '').isNotEmpty) {
+      _dueDate = DateTime.tryParse(t['dueDate']!);
+    }
+
+    // Parse the stored '2:30 PM' string back into a TimeOfDay for the time picker
+    if ((t['dueTime'] ?? '').isNotEmpty) {
+      _dueTime = _parseTime(t['dueTime']!);
+    }
+
+    // Restore the repeat toggle and frequency
+    final repeat = t['repeat'] ?? '';
+    if (repeat.isNotEmpty && repeat != 'Do Not Repeat') {
+      _repeats         = true;
+      _repeatFrequency = repeat;
+    }
+  }
+
+  // Converts '2:30 PM' back to a TimeOfDay.
+  // We stored it as a formatted string, so we have to reverse that here.
+  // Returns null if the string is malformed so we don't crash on bad data.
+  TimeOfDay? _parseTime(String s) {
+    try {
+      final parts     = s.split(' ');          // ['2:30', 'PM']
+      final timeParts = parts[0].split(':');   // ['2', '30']
+      var   hour      = int.parse(timeParts[0]);
+      final minute    = int.parse(timeParts[1]);
+      if (parts[1] == 'PM' && hour != 12) hour += 12;
+      if (parts[1] == 'AM' && hour == 12) hour  = 0;
+      return TimeOfDay(hour: hour, minute: minute);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<void> _pickDate() async {
@@ -375,8 +438,9 @@ class _AddTaskState extends State<AddTask> {
           icon: const Icon(Icons.arrow_back_ios_new, size: 18.0),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text('New Task',
-          style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
+        // Title changes based on whether we're creating or editing
+        title: Text(widget.task != null ? 'Edit Task' : 'New Task',
+          style: const TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         actions: [
@@ -702,8 +766,8 @@ class _AddTaskState extends State<AddTask> {
                     borderRadius: BorderRadius.circular(10.0),
                   ),
                 ),
-                child: const Text('Save Task',
-                  style: TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
+                child: Text(widget.task != null ? 'Update Task' : 'Save Task',
+                  style: const TextStyle(fontSize: 16.0, fontWeight: FontWeight.bold),
                 ),
               ),
             ),

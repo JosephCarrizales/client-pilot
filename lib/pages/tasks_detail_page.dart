@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:client_pilot/pages/client_detail_page.dart';
+import 'package:client_pilot/pages/add_task.dart';
+import 'package:client_pilot/data/app_data.dart';
+import 'package:client_pilot/widgets/task_completion_dialog.dart';
 
 // StatefulWidget is used here even though we don't have state yet.
 // We'll need it once we add interactive sections like the contact action buttons.
@@ -58,20 +61,55 @@ class _TasksDetailPageState extends State<TasksDetailPage> {
   static const _menuArchive    = 'archive';
 
   // Called when the user picks an option from the three-dots menu.
-  // 'value' is the string from whichever PopupMenuItem was tapped.
+  // Each case either pops with a result string so tasks_page can react,
+  // or pushes a new page.
   void _onMenuSelected(String value) {
     switch (value) {
-      case _menuComplete: print('Complete Task tapped');  break;
-      case _menuEdit: print('Edit tapped');           break;
-      case _menuReschedule: print('Reschedule tapped');     break;
+
+      // Show the same completion dialog as the task card on the tasks page.
+      // onComplete pops this page with 'delete' so tasks_page removes the task.
+      case _menuComplete:
+        showTaskCompletionDialog(
+          context: context,
+          task: widget.task,
+          onComplete: () => Navigator.pop(context, 'delete'),
+        );
+        break;
+
+      // Open the AddTask form pre-filled with the current task data.
+      // If the user saves, pop back with the updated task so tasks_page can replace it.
+      case _menuEdit:
+        _editTask();
+        break;
+
+      // Navigate to the linked contact's detail page
       case _menuContact:
-        // 'widget.client' — 'widget' is how the State reaches back up to its
-        // parent StatefulWidget to read the data passed into the constructor.
         Navigator.push(context, MaterialPageRoute(
           builder: (_) => ClientDetailPage(client: widget.client),
         ));
         break;
-      case _menuArchive: print('Archive tapped'); break;
+
+      // Archive = delete for now. Pop with 'delete' and tasks_page removes it.
+      case _menuArchive:
+        Navigator.pop(context, 'delete');
+        break;
+    }
+  }
+
+  // Pushes AddTask in edit mode. If the user saves changes, we pop this page
+  // with the updated task map so tasks_page can replace the old entry.
+  Future<void> _editTask() async {
+    final updated = await Navigator.push<Map<String, dynamic>>(
+      context,
+      MaterialPageRoute(
+        // kContacts gives the full contacts list so the user can change the link
+        builder: (_) => AddTask(contacts: kContacts, task: widget.task),
+      ),
+    );
+
+    // Only pop if the user actually saved (didn't cancel)
+    if (updated != null && mounted) {
+      Navigator.pop(context, updated);
     }
   }
 

@@ -1,6 +1,7 @@
 import 'package:client_pilot/pages/tasks_detail_page.dart';
 import 'package:client_pilot/pages/add_task.dart';
 import 'package:client_pilot/data/app_data.dart';
+import 'package:client_pilot/widgets/task_completion_dialog.dart';
 import 'package:flutter/material.dart';
 
 class TasksPage extends StatefulWidget {
@@ -169,95 +170,13 @@ class _TasksPageState extends State<TasksPage> {
     );
   }
 
+  // Delegates to the shared dialog — the onComplete callback removes the task
+  // from this page's list, which is all the tasks page needs to do here.
   void _showCompletionDialog(Map<String, String> task) {
-    final clientName = task['clientName']!;
-    final taskType   = task['taskType'];
-
-    // Dialog uses a custom widget instead of AlertDialog so we can stack the
-    // buttons vertically — the button text is long and would overflow a Row.
-    showDialog(
+    showTaskCompletionDialog(
       context: context,
-      builder: (ctx) => Dialog(
-        backgroundColor: const Color(0xFF13161E),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min, // shrink-wrap to content, don't fill screen
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('$taskType Task Completed?',
-                style: const TextStyle(
-                  fontSize: 16.0,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 8.0),
-              Text(
-                'Would you like to add a $taskType activity to $clientName\'s timeline?',
-                style: const TextStyle(
-                  fontSize: 13.0,
-                  color: Color(0xFF64748B),
-                ),
-              ),
-              const SizedBox(height: 24.0),
-
-              // Primary action — full width green button
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton(
-                  onPressed: () {
-                    // TODO: log activity to timeline when that feature is built
-                    setState(() => tasks.remove(task));
-                    Navigator.pop(ctx);
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF4ADE80),
-                    foregroundColor: const Color(0xFF0B0D12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                  ),
-                  child: Text('Add a $taskType Activity and mark as complete'),
-                ),
-              ),
-              const SizedBox(height: 8.0),
-
-              // Secondary action — green border + text, no fill, so it reads as
-              // a distinct choice from the primary without competing for attention
-              SizedBox(
-                width: double.infinity,
-                child: OutlinedButton(
-                  onPressed: () {
-                    setState(() => tasks.remove(task));
-                    Navigator.pop(ctx);
-                  },
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: const Color(0xFF4ADE80),
-                    side: const BorderSide(color: Color(0xFF4ADE80)),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8.0),
-                    ),
-                  ),
-                  child: const Text('Mark as complete only'),
-                ),
-              ),
-
-              // Cancel — closes the dialog without doing anything
-              SizedBox(
-                width: double.infinity,
-                child: TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF64748B),
-                  ),
-                  child: const Text('Cancel'),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+      task: task,
+      onComplete: () => setState(() => tasks.remove(task)),
     );
   }
 
@@ -274,17 +193,28 @@ class _TasksPageState extends State<TasksPage> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(10.0),
-          onTap: () {
-            // Look up the full client map by the name stored on the task.
-            // Falls back to an empty map if the name doesn't match anyone,
-            // so the app doesn't crash if a task has a client we haven't added yet.
+          onTap: () async {
             final client = _clients[task['clientName']] ?? {};
-            Navigator.push(
+
+            // Await so we can react to whatever the detail page pops back with.
+            // 'delete' means complete or archive — remove from the list.
+            // A Map means the task was edited — replace the old entry.
+            final result = await Navigator.push<Object>(
               context,
               MaterialPageRoute(
                 builder: (context) => TasksDetailPage(task: task, client: client),
               ),
             );
+
+            if (!mounted) return;
+
+            if (result == 'delete') {
+              setState(() => tasks.remove(task));
+            } else if (result is Map<String, String>) {
+              // Find the old task and swap it with the updated version
+              final i = tasks.indexOf(task);
+              if (i != -1) setState(() => tasks[i] = result);
+            }
           },
           child: Padding(
             padding: const EdgeInsets.all(12.0),
